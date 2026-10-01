@@ -1,0 +1,49 @@
+<!--
+  Custom detection rules for the SIEM lab.
+
+  Wazuh's default ruleset decodes each failed SSH login as rule 5760
+  ("sshd: authentication failed") and a successful login as rule 5715
+  ("sshd: authentication success"), and it already correlates repeated
+  failures into a brute-force alert (rule 5763). These local rules add two
+  higher-value SOC detections on top of that base ruleset:
+
+    100100 - Brute-force burst raised to HIGH severity: several SSH auth
+             failures (5760) from the same source IP inside a short window.
+    100101 - Successful SSH login from a source IP that just triggered the
+             brute-force burst above: the key "brute force may have
+             SUCCEEDED" signal an analyst must investigate as a possible
+             account compromise.
+
+  Rule IDs 100000-119999 are the range Wazuh reserves for user rules.
+  Note: frequency must be >1 (Wazuh rejects frequency="1").
+-->
+<group name="local,siem_lab,authentication,">
+
+  <!-- 100100: brute-force burst. Fires when sshd auth failures (5760)
+       repeat from the same source IP. Tuned low so the lab alerts quickly. -->
+  <rule id="100100" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>5760</if_matched_sid>
+    <same_source_ip />
+    <description>SIEM-LAB: SSH brute-force pattern - repeated auth failures from same source IP</description>
+    <mitre>
+      <id>T1110</id> <!-- Brute Force -->
+    </mitre>
+    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <!-- 100101: possible successful compromise. A successful SSH login (5715)
+       from a source IP that just triggered the brute-force burst (100100).
+       This is the alert a SOC analyst prioritises. -->
+  <rule id="100101" level="12" timeframe="300">
+    <if_sid>5715</if_sid>
+    <if_matched_sid>100100</if_matched_sid>
+    <same_source_ip />
+    <description>SIEM-LAB: Successful SSH login after brute-force from same IP - possible account compromise, investigate</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id> <!-- Valid Accounts -->
+    </mitre>
+    <group>authentication_success,pci_dss_11.4,gdpr_IV_35.7.d,</group>
+  </rule>
+
+</group>

@@ -1,0 +1,9 @@
+# Never commit generated TLS material / agent keys
+siem/config/wazuh_indexer_ssl_certs/
+**/*.key
+**/*.pem
+**/client.keys
+
+# Build/runtime noise
+report/startup.log
+upstream/
